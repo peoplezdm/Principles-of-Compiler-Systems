@@ -1,0 +1,29 @@
+int m=1;
+int num[2]={2,4};
+const float pi=3.14;
+int mul(int a, int b) {
+    int temp;
+    temp=a%b;
+    a=a+temp;
+    return a*b;
+}
+int main() {
+    int x;
+    x=getint();
+    int result=x;
+    while (x >m) {
+        result=mul(result,x-1);
+        if (result>100 || x*result>500) {
+            break;
+        }
+        else{
+        x=x-1;
+        }
+    }
+    putint(result);
+    float k;
+    k=result+pi;
+    k=k/num[0];
+    putfloat(k);
+    return 0;
+}
