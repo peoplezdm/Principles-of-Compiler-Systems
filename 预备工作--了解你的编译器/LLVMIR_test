@@ -1,0 +1,93 @@
+declare i32 @getint()
+declare void @putfloat(float)
+declare void @putint(i32)
+declare void @putchar(i32)
+;在LLVM IR编程中想使用 SysY 语言的运行时库，
+;首先需要做顶部声明需要使用到函数
+
+;以下为mul函数
+@m=global i32 1,align 4
+;声明全局变量m,全局变量要加一个global
+@num=global [2 x i32] [i32 2, i32 4],align 4
+;声明全局数组num[2]
+@pi = constant float bitcast (i32 1078523331 to float), align 4
+
+define i32 @my_mul(i32 %a,i32 %b) {
+;定义函数mul ,函数参数要加上类型,i32表示int类型,%表示临时变量
+entry:
+%temp = srem i32 %a, %b
+;有符号数取模运算用srem
+%add_result=add i32 %temp,%a
+%mul_result=mul i32 %add_result,%b
+;加法运算用add
+;乘法运算用*
+ret i32 %mul_result
+;返回值用ret，和汇编语言一样
+}
+
+;以下为主函数main()
+define i32 @main() {
+entry:
+%x = alloca i32, align 4
+%t0 = call i32 @getint()
+store i32 %t0, i32* %x, align 4
+;调用函数用call,x存输入的值
+%result=alloca i32,align 4
+;在LLVM IR里，所有的局部变量都要用alloca分配内存空间
+%x_val = load i32, i32* %x, align 4
+store i32 %x_val, i32* %result, align 4
+;把x的值存到result变量里
+%load_result=load i32,i32* %result,align 4
+;load result的值，存在load_result里
+
+br label %while_cond
+;无条件跳转到 %while_cond 标签。用来做循环前的条件检查。
+while_cond:
+    %load_x2 = load i32, i32* %x, align 4
+    ;再取一个x，用来循环判断
+    %m_val = load i32, i32* @m
+    ;取全局变量m，注意 LLVM 全局变量默认是指针。
+    %cmp = icmp sgt i32 %load_x2, %m_val
+    ;sgt,比较x是否大于m，1为true，0为false。
+    br i1 %cmp, label %while_body, label %while_end
+    ;%cmp为1跳到while_body,否则结束。
+
+while_body:
+; result = mul(result, x-1)
+    %load_result1 = load i32, i32* %result, align 4;取result的当前值
+    %load_x3 = load i32, i32* %x, align 4;取一个x的当前值
+    %x_minus1 = sub i32 %load_x3, 1;x-1
+    %call_mul = call i32 @my_mul(i32 %load_result1, i32 %x_minus1);调用函数
+    store i32 %call_mul, i32* %result, align 4;把乘法结果存到result指向的地址，即更新result的值
+
+    ; if (result > 100 || x*result > 500)，if和while本质上是一样的，都是用br跳转。
+    %load_result2 = load i32, i32* %result, align 4;再取一个result的值
+    %cmp1 = icmp sgt i32 %load_result2, 100;和100比较
+    %load_x4 = load i32, i32* %x, align 4;取个x
+    %mul_xr = mul i32 %load_x4, %load_result2;计算x*resuly
+    %cmp2 = icmp sgt i32 %mul_xr, 500;和500比较
+    %cond = or i1 %cmp1, %cmp2;执行或运算
+    br i1 %cond, label %while_end, label %if_else;进行跳转
+
+if_else:
+    ; x = x - 1
+    %load_x5 = load i32, i32* %x, align 4;取x
+    %x_dec = sub i32 %load_x5, 1;x-1
+    store i32 %x_dec, i32* %x, align 4;更新x的值
+    br label %while_cond;继续循环
+
+while_end:
+    %load_result3 = load i32, i32* %result, align 4;取result
+    call void @putint(i32 %load_result3);输出循环后的结果
+    call void @putchar(i32 10);输出换行符
+    %result_to_float = sitofp i32 %load_result3 to float;把int转成float,因为后边要和pi相加
+    %pi_val = load float, float* @pi       ; 先加载pi
+    %add_pi = fadd float %result_to_float,%pi_val;浮点加法，加上pi
+    %num0_ptr = getelementptr [2 x i32], [2 x i32]* @num, i32 0, i32 0;取num[0]的地址存入num0_ptr，注意这里num前边是@
+    %num0 = load i32, i32* %num0_ptr, align 4;取num[0]的值
+    %num0_to_float = sitofp i32 %num0 to float;把int型的num转成float
+    %div_k = fdiv float %add_pi, %num0_to_float;进行除法运算
+    call void @putfloat(float %div_k);调用putfloat函数输出k的值
+    call void @putchar(i32 10);输出换行符
+    ret i32 0;返回0
+}
